@@ -1,0 +1,106 @@
+version: "3.9"
+
+networks:
+  metrorrey_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.20.0.0/16"
+          ip_range: "172.20.240.0/20"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.9.13-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672" # puerto de RabbitMQ para la conexión
+      - "15672:15672" # puerto de RabbitMQ para el dashboard de management
+    environment:
+      RABBITMQ_NODENAME: rabbitmq
+      RABBITMQ_DEFAULT_USER: metrorey # nombre de usuario persistente
+      RABBITMQ_DEFAULT_PASS: metrorey # contraseña
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq_prometheus
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq # volumen para almacenar los datos de RabbitMQ
+      - ./advanced.config:/etc/rabbitmq/advanced.config
+    labels:
+      - "prometheus.job=rabbitmq"
+      - "prometheus.port=15692"
+    networks:
+      metrorrey_network:
+        ipv4_address: 172.20.240.1
+
+  rabbitmq_exporter:
+    image: kbudde/rabbitmq-exporter
+    container_name: rabbitmq_exporter
+    restart: unless-stopped
+    ports:
+      - "9419:9419"
+    environment:
+      RABBIT_URL: "http://rabbitmq:15672"
+      RABBIT_USER: "metrorey"
+      RABBIT_PASSWORD: "metrorey"
+      EXPORTER_PORT: "9419"
+    labels:
+      - "prometheus.job=rabbitmq_exporter"
+      - "prometheus.port=9419"
+    networks:
+      metrorrey_network:
+        ipv4_address: 172.20.240.2
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - prometheus_config:/etc/prometheus/
+      - prometheus_data:/prometheus/
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - 9090:9090
+    labels:
+      - "prometheus.job=prometheus"
+    # Configuramos el RabbitMQ exporter como target de Prometheus
+    # Utilizamos el nombre del servicio del exporter en el docker-compose (rabbitmq_exporter)
+    # para referenciar su dirección
+    extra_hosts:
+      - "rabbitmq_exporter:172.20.240.2"
+    networks:
+      metrorrey_network:
+        ipv4_address: 172.20.240.3
+
+  grafana:
+    image: grafana/grafana-enterprise
+    volumes:
+      - grafana_config:/etc/grafana
+      - grafana_db:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      GF_SECURITY_ADMIN_USER: metrorey
+      GF_SECURITY_ADMIN_PASSWORD: metrorey
+    ports:
+      - 3000:3000
+    networks:
+      metrorrey_network:
+        ipv4_address: 172.20.240.4
+
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  prometheus_config:
+    driver: local
+  grafana_db:
+    driver: local
+  grafana_config:
+    driver: local

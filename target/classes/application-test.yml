@@ -1,0 +1,60 @@
+server:
+  servlet:
+    context-path: /metrorrey
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: metrorey
+    password: metrorey
+    queue_desactivation:
+      name: desactivation
+      routing:
+        key: desactivation_routing_key
+    queue_activation:
+      name: activation
+      routing:
+        key: activation_routing_key
+    queue_payments:
+      name: payments
+      routing:
+        key: payments_routing_key
+    queue_disqualification:
+      name: disqualification
+      routing:
+        key: disqualification_routing_key
+    queue_rechange:
+      name: rechange
+      routing:
+        key: rechange_routing_key
+    exchange:
+      name: metrorrey_exchange
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+logging:
+  level:
+    root: INFO
+    mtrorrey.com: DEBUG
+  file:
+    name: ./log/chip_producer.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60s
+        ringBufferSizeInHalfOpenState: 10
+        ringBufferSizeInClosedState: 100
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - org.springframework.web.client.HttpServerErrorException
