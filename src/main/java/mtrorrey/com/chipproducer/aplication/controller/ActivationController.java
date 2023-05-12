@@ -37,7 +37,7 @@ public class ActivationController {
     @CircuitBreaker(name = "activationService", fallbackMethod = "fallbackActivation")
     public ResponseEntity<String> activation(@RequestBody @Validated ActivationDTO activationDTO) {
         activationService.activation(activationDTO);
-        return new ResponseEntity<String>("Mensaje enviado",HttpStatus.OK);
+        return new ResponseEntity<>("Mensaje enviado",HttpStatus.OK);
     }
 
     /**
@@ -47,7 +47,7 @@ public class ActivationController {
      * @param throwable the throwable
      * @return HTTP 500 Internal Server Error
      */
-    public ResponseEntity<String> fallbackActivation(ActivationDTO activationDTO, Throwable t) {
+    public ResponseEntity<String> fallbackActivation(ActivationDTO activationDTO) {
         return new ResponseEntity<>("Fallback Response", HttpStatus.INTERNAL_SERVER_ERROR);
     }
     /**
